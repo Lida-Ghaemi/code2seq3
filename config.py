@@ -1,4 +1,4 @@
-    class Config:
+class Config:
     @staticmethod
     def get_default_config(args):
         config = Config(args)
