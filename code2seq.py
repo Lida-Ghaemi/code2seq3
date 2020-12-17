@@ -148,7 +148,7 @@ if __name__ == '__main__':
                     tae_runner=mysmac_from_cfg)
     print("@@@@@@start optimize @@@@@@@@@@")
     incumbent = smac.optimize()
-     print("@@@@@@finish optimize @@@@@@@@@@")
+    print("@@@@@@finish optimize @@@@@@@@@@")
     inc_value = mysmac_from_cfg(incumbent)
 
     print("Optimized Value: %.2f" % (inc_value))
