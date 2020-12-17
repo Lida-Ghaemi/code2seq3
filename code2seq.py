@@ -146,9 +146,9 @@ if __name__ == '__main__':
     print("Optimizing! Depending on your machine, this might take a few minutes.")
     smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
                     tae_runner=mysmac_from_cfg)
-
+    print("@@@@@@start optimize @@@@@@@@@@")
     incumbent = smac.optimize()
-
+     print("@@@@@@finish optimize @@@@@@@@@@")
     inc_value = mysmac_from_cfg(incumbent)
 
     print("Optimized Value: %.2f" % (inc_value))
