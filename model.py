@@ -8,11 +8,12 @@ import tensorflow as tf
 
 import reader
 from common import Common
+from rouge import FilesRouge
 
 
 class Model:
     topk = 10
-    num_batches_to_log = 100
+    num_batches_to_log = 400
 
     def __init__(self, config):
         self.config = config
@@ -57,7 +58,77 @@ class Model:
 
     def close_session(self):
         self.sess.close()
+###########################
+    def train1(self):
+        print('Starting training')
+        start_time = time.time()
 
+        batch_num = 0
+        sum_loss = 0
+        best_f1 = 0
+        best_epoch = 0
+        best_f1_precision = 0
+        best_f1_recall = 0
+        epochs_no_improve = 0
+
+        self.queue_thread = reader.Reader(subtoken_to_index=self.subtoken_to_index,
+                                          node_to_index=self.node_to_index,
+                                          target_to_index=self.target_to_index,
+                                          config=self.config)
+        optimizer, train_loss = self.build_training_graph1(self.queue_thread.get_output())
+        #tf.variable_scope("SUBTOKENS_VOCAB", reuse = tf.AUTO_REUSE)
+        self.print_hyperparams()
+       # print('Number of trainable params:',
+          #    np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
+        self.initialize_session_variables(self.sess)
+        #print('Initalized variables')
+        #if self.config.LOAD_PATH:
+          #  self.load_model(self.sess)
+
+        
+
+        #if self.config.SAVE_PATH:
+         #   self.save_model(self.sess, self.config.SAVE_PATH + '.final')
+         #   print('Model saved in file: %s' % self.config.SAVE_PATH)
+
+        elapsed = int(time.time() - start_time)
+        print("Training time: %sh%sm%ss\n" % ((elapsed // 60 // 60), (elapsed // 60) % 60, elapsed % 60))
+  ################################################      
+    def train2(self):
+        print('Starting training')
+        start_time = time.time()
+
+        batch_num = 0
+        sum_loss = 0
+        best_f1 = 0
+        best_epoch = 0
+        best_f1_precision = 0
+        best_f1_recall = 0
+        epochs_no_improve = 0
+
+        self.queue_thread = reader.Reader(subtoken_to_index=self.subtoken_to_index,
+                                          node_to_index=self.node_to_index,
+                                          target_to_index=self.target_to_index,
+                                          config=self.config)
+        optimizer, train_loss = self.build_training_graph(self.queue_thread.get_output())
+        #tf.variable_scope("SUBTOKENS_VOCAB", reuse = tf.AUTO_REUSE)
+        self.print_hyperparams()
+       # print('Number of trainable params:',
+          #    np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
+        self.initialize_session_variables(self.sess)
+        #print('Initalized variables')
+        #if self.config.LOAD_PATH:
+          #  self.load_model(self.sess)
+
+        
+
+        #if self.config.SAVE_PATH:
+         #   self.save_model(self.sess, self.config.SAVE_PATH + '.final')
+         #   print('Model saved in file: %s' % self.config.SAVE_PATH)
+
+        elapsed = int(time.time() - start_time)
+        print("Training time: %sh%sm%ss\n" % ((elapsed // 60 // 60), (elapsed // 60) % 60, elapsed % 60))
+############################
     def train(self):
         print('Starting training')
         start_time = time.time()
@@ -94,6 +165,7 @@ class Model:
                     batch_num += 1
                     _, batch_loss = self.sess.run([optimizer, train_loss])
                     sum_loss += batch_loss
+                    # print('SINGLE BATCH LOSS', batch_loss)
                     if batch_num % self.num_batches_to_log == 0:
                         self.trace(sum_loss, batch_num, multi_batch_start_time)
                         sum_loss = 0
@@ -103,13 +175,14 @@ class Model:
             except tf.errors.OutOfRangeError:
                 self.epochs_trained += self.config.SAVE_EVERY_EPOCHS
                 print('Finished %d epochs' % self.config.SAVE_EVERY_EPOCHS)
-                results, precision, recall, f1 = self.evaluate()
+                results, precision, recall, f1, rouge = self.evaluate()
                 if self.config.BEAM_WIDTH == 0:
                     print('Accuracy after %d epochs: %.5f' % (self.epochs_trained, results))
                 else:
                     print('Accuracy after {} epochs: {}'.format(self.epochs_trained, results))
                 print('After %d epochs: Precision: %.5f, recall: %.5f, F1: %.5f' % (
                     self.epochs_trained, precision, recall, f1))
+                print('Rouge: ', rouge)
                 if f1 > best_f1:
                     best_f1 = f1
                     best_f1_precision = precision
@@ -222,8 +295,15 @@ class Model:
 
         elapsed = int(time.time() - eval_start_time)
         precision, recall, f1 = self.calculate_results(true_positive, false_positive, false_negative)
+        try:
+            files_rouge = FilesRouge()
+            rouge = files_rouge.get_scores(
+                hyp_path=predicted_file_name, ref_path=ref_file_name, avg=True, ignore_empty=True)
+        except ValueError:
+            rouge = 0
         print("Evaluation time: %sh%sm%ss" % ((elapsed // 60 // 60), (elapsed // 60) % 60, elapsed % 60))
-        return num_correct_predictions / total_predictions, precision, recall, f1
+        return num_correct_predictions / total_predictions, \
+               precision, recall, f1, rouge
 
     def update_correct_predictions(self, num_correct_predictions, output_file, results):
         for original_name, predicted in results:
@@ -233,10 +313,10 @@ class Model:
             if self.config.BEAM_WIDTH > 0:
                 predicted_first = predicted[0]
             filtered_predicted_first_parts = Common.filter_impossible_names(predicted_first) # list
-            output_file.write('Original: ' + Common.internal_delimiter.join(original_name_parts) +
-                              ' , predicted 1st: ' + Common.internal_delimiter.join(filtered_predicted_first_parts) + '\n')
 
             if self.config.BEAM_WIDTH == 0:
+                output_file.write('Original: ' + Common.internal_delimiter.join(original_name_parts) +
+                                  ' , predicted 1st: ' + Common.internal_delimiter.join(filtered_predicted_first_parts) + '\n')
                 if filtered_original == filtered_predicted_first_parts or Common.unique(filtered_original) == Common.unique(
                         filtered_predicted_first_parts) or ''.join(filtered_original) == ''.join(filtered_predicted_first_parts):
                     num_correct_predictions += 1
@@ -244,6 +324,9 @@ class Model:
                 filtered_predicted = [Common.internal_delimiter.join(Common.filter_impossible_names(p)) for p in predicted]
 
                 true_ref = original_name
+                output_file.write('Original: ' + ' '.join(original_name_parts) + '\n')
+                for i, p in enumerate(filtered_predicted):
+                    output_file.write('\t@{}: {}'.format(i + 1, ' '.join(p.split(Common.internal_delimiter)))+ '\n')
                 if true_ref in filtered_predicted:
                     index_of_correct = filtered_predicted.index(true_ref)
                     update = np.concatenate(
@@ -274,25 +357,27 @@ class Model:
         return true_positive, false_positive, false_negative
 
     def print_hyperparams(self):
-        print('Training batch size:\t\t\t', self.config.BATCH_SIZE)
-        print('Dataset path:\t\t\t\t', self.config.TRAIN_PATH)
-        print('Training file path:\t\t\t', self.config.TRAIN_PATH + '.train.c2s')
-        print('Validation path:\t\t\t', self.config.TEST_PATH)
-        print('Taking max contexts from each example:\t', self.config.MAX_CONTEXTS)
-        print('Random path sampling:\t\t\t', self.config.RANDOM_CONTEXTS)
-        print('Embedding size:\t\t\t\t', self.config.EMBEDDINGS_SIZE)
-        if self.config.BIRNN:
-            print('Using BiLSTMs, each of size:\t\t', self.config.RNN_SIZE // 2)
-        else:
-            print('Uni-directional LSTM of size:\t\t', self.config.RNN_SIZE)
-        print('Decoder size:\t\t\t\t', self.config.DECODER_SIZE)
-        print('Decoder layers:\t\t\t\t', self.config.NUM_DECODER_LAYERS)
-        print('Max path lengths:\t\t\t', self.config.MAX_PATH_LENGTH)
-        print('Max subtokens in a token:\t\t', self.config.MAX_NAME_PARTS)
-        print('Max target length:\t\t\t', self.config.MAX_TARGET_PARTS)
-        print('Embeddings dropout keep_prob:\t\t', self.config.EMBEDDINGS_DROPOUT_KEEP_PROB)
-        print('LSTM dropout keep_prob:\t\t\t', self.config.RNN_DROPOUT_KEEP_PROB)
-        print('============================================')
+        print()
+     #   print('Training batch size:\t\t\t', self.config.BATCH_SIZE)
+     #   print('Dataset path:\t\t\t\t', self.config.TRAIN_PATH)
+      #  print('Training file path:\t\t\t', self.config.TRAIN_PATH + '.train.c2s')
+       # print('Validation path:\t\t\t', self.config.TEST_PATH)
+     #   print('Taking max contexts from each example:\t', self.config.MAX_CONTEXTS)
+      #  print('Random path sampling:\t\t\t', self.config.RANDOM_CONTEXTS)
+       # print('Embedding size:\t\t\t\t', self.config.EMBEDDINGS_SIZE)
+        #if self.config.BIRNN:
+      #      print('Using BiLSTMs, each of size:\t\t', self.config.RNN_SIZE // 2)
+       # else:
+        #    print('Uni-directional LSTM of size:\t\t', self.config.RNN_SIZE)
+      #  print('Decoder size:\t\t\t\t', self.config.DECODER_SIZE)
+       # print('Decoder layers:\t\t\t\t', self.config.NUM_DECODER_LAYERS)
+        #print('Max path lengths:\t\t\t', self.config.MAX_PATH_LENGTH)
+    #    print('Max subtokens in a token:\t\t', self.config.MAX_NAME_PARTS)
+     #   print('Epochs:\t\t', self.config.NUM_EPOCHS)
+      #  print('Max target length:\t\t\t', self.config.MAX_TARGET_PARTS)
+       # print('Embeddings dropout keep_prob:\t\t', self.config.EMBEDDINGS_DROPOUT_KEEP_PROB)
+     #   print('LSTM dropout keep_prob:\t\t\t', self.config.RNN_DROPOUT_KEEP_PROB)
+       # print('============================================')
 
     @staticmethod
     def calculate_results(true_positive, false_positive, false_negative):
@@ -320,6 +405,74 @@ class Model:
         print(throughput_message)
 
     def build_training_graph(self, input_tensors):
+        target_index = input_tensors[reader.TARGET_INDEX_KEY]
+        target_lengths = input_tensors[reader.TARGET_LENGTH_KEY]
+        path_source_indices = input_tensors[reader.PATH_SOURCE_INDICES_KEY]
+        node_indices = input_tensors[reader.NODE_INDICES_KEY]
+        path_target_indices = input_tensors[reader.PATH_TARGET_INDICES_KEY]
+        valid_context_mask = input_tensors[reader.VALID_CONTEXT_MASK_KEY]
+        path_source_lengths = input_tensors[reader.PATH_SOURCE_LENGTHS_KEY]
+        path_lengths = input_tensors[reader.PATH_LENGTHS_KEY]
+        path_target_lengths = input_tensors[reader.PATH_TARGET_LENGTHS_KEY]
+
+        with tf.variable_scope('model',reuse=True):
+            subtoken_vocab = tf.get_variable('SUBTOKENS_VOCAB',
+                                             shape=(self.subtoken_vocab_size, self.config.EMBEDDINGS_SIZE),
+                                             dtype=tf.float32,
+                                             initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0,
+                                                                                                        mode='FAN_OUT',
+                                                                                                        uniform=True))
+            target_words_vocab = tf.get_variable('TARGET_WORDS_VOCAB',
+                                                 shape=(self.target_vocab_size, self.config.EMBEDDINGS_SIZE),
+                                                 dtype=tf.float32,
+                                                 initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0,
+                                                                                                            mode='FAN_OUT',
+                                                                                                            uniform=True))
+            nodes_vocab = tf.get_variable('NODES_VOCAB', shape=(self.nodes_vocab_size, self.config.EMBEDDINGS_SIZE),
+                                          dtype=tf.float32,
+                                          initializer=tf.contrib.layers.variance_scaling_initializer(factor=1.0,
+                                                                                                     mode='FAN_OUT',
+                                                                                                     uniform=True))
+            # (batch, max_contexts, decoder_size)
+            batched_contexts = self.compute_contexts(subtoken_vocab=subtoken_vocab, nodes_vocab=nodes_vocab,
+                                                     source_input=path_source_indices, nodes_input=node_indices,
+                                                     target_input=path_target_indices,
+                                                     valid_mask=valid_context_mask,
+                                                     path_source_lengths=path_source_lengths,
+                                                     path_lengths=path_lengths, path_target_lengths=path_target_lengths)
+
+            batch_size = tf.shape(target_index)[0]
+            outputs, final_states = self.decode_outputs(target_words_vocab=target_words_vocab,
+                                                        target_input=target_index, batch_size=batch_size,
+                                                        batched_contexts=batched_contexts,
+                                                        valid_mask=valid_context_mask)
+            step = tf.Variable(0, trainable=False)
+
+            logits = outputs.rnn_output  # (batch, max_output_length, dim * 2 + rnn_size)
+
+            crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target_index, logits=logits)
+            target_words_nonzero = tf.sequence_mask(target_lengths + 1,
+                                                    maxlen=self.config.MAX_TARGET_PARTS + 1, dtype=tf.float32)
+            loss = tf.reduce_sum(crossent * target_words_nonzero) / tf.to_float(batch_size)
+
+            if self.config.USE_MOMENTUM:
+                learning_rate = tf.train.exponential_decay(0.01, step * self.config.BATCH_SIZE,
+                                                           self.num_training_examples,
+                                                           0.95, staircase=True)
+                optimizer = tf.train.MomentumOptimizer(learning_rate, 0.95, use_nesterov=True)
+                train_op = optimizer.minimize(loss, global_step=step)
+            else:
+                params = tf.trainable_variables()
+                gradients = tf.gradients(loss, params)
+                clipped_gradients, _ = tf.clip_by_global_norm(gradients, clip_norm=5)
+                optimizer = tf.train.AdamOptimizer()
+                train_op = optimizer.apply_gradients(zip(clipped_gradients, params))
+
+            self.saver = tf.train.Saver(max_to_keep=10)
+
+        return train_op, loss
+    ########################################
+    def build_training_graph1(self, input_tensors):
         target_index = input_tensors[reader.TARGET_INDEX_KEY]
         target_lengths = input_tensors[reader.TARGET_LENGTH_KEY]
         path_source_indices = input_tensors[reader.PATH_SOURCE_INDICES_KEY]
@@ -384,7 +537,7 @@ class Model:
                 train_op = optimizer.apply_gradients(zip(clipped_gradients, params))
 
             self.saver = tf.train.Saver(max_to_keep=10)
-
+        
         return train_op, loss
 
     def decode_outputs(self, target_words_vocab, target_input, batch_size, batched_contexts, valid_mask,
