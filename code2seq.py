@@ -67,8 +67,8 @@ def mysmac_from_cfg(cfg):
     model = Model(config1)
     
     global ii
-    print("iiiiiiiiiiiiiiii     ")
-    print(ii)
+    #print("iiiiiiiiiiiiiiii     ")
+    #print(ii)
     if ii>0: #for the case where reuse is True inside GA
         print("-----------------------------i am here ii>0-----------------")
         model.train2()
@@ -78,8 +78,8 @@ def mysmac_from_cfg(cfg):
     else:#for the case where reuse is False inside GA-first indiv
         model.train1()
         ii=2
-        print("otheriiiiiiiiiiiiiiii     ")
-        print(ii)
+        #print("otheriiiiiiiiiiiiiiii     ")
+        #print(ii)
         results, precision, recall, f1, rouge = model.evaluate()
     ii=2
     return f1
