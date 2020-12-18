@@ -14,7 +14,7 @@ import numpy as np
 from ConfigSpace.conditions import InCondition
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
-from sklearn import svm, datasets
+from sklearn import datasets
 from sklearn.model_selection import cross_val_score
 
 # Import ConfigSpace and different types of parameters
@@ -23,8 +23,21 @@ from smac.facade.smac_hpo_facade import SMAC4HPO
 # Import SMAC-utilities
 from smac.scenario.scenario import Scenario
 # --------------------------------------------------------------
+
+import warnings
+
+#import ConfigSpace as CS
+from sklearn.datasets import load_digits
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from smac.facade.smac_bohb_facade import BOHB4HPO
+
+
+#-----------------------------------------
 import os
 import sys
+
+print("I am in code2seq")
 
 ii=0
 def mysmac_from_cfg(cfg):
@@ -40,21 +53,35 @@ def mysmac_from_cfg(cfg):
      #   cfg.pop("gamma_value", None)  # Remove "gamma_value"
 
 #    clf = svm.SVC(**cfg, random_state=42)
-    config.BATCH_SIZE = cfg['BATCH_SIZE']
-    config.NUM_EPOCHS = cfg['NUM_EPOCHS']
-    config.MAX_TARGET_PARTS = cfg['MAX_TARGET_PARTS']   
-    model = Model(config)
+    #print('############## ')
+    #print(config.BATCH_SIZE)
+    config1.BATCH_SIZE = cfg['BATCH_SIZE']
+    #print('###########   ')
+    #print(config.BATCH_SIZE)
+    config1.NUM_EPOCHS = cfg['NUM_EPOCHS']
+    #print('###########   ')
+   # print(type(config.NUM_EPOCHS))
+    config1.MAX_TARGET_PARTS = cfg['MAX_TARGET_PARTS']  
+    #print('###########   ')
+    #print(config.MAX_TARGET_PARTS)
+    model = Model(config1)
+    
     global ii
+    print("iiiiiiiiiiiiiiii     ")
+    print(ii)
     if ii>0: #for the case where reuse is True inside GA
+        print("-----------------------------i am here ii>0-----------------")
         model.train2()
         results, precision, recall, f1, rouge = model.evaluate()
+        ii=2
 
     else:#for the case where reuse is False inside GA-first indiv
         model.train1()
         ii=2
+        print("otheriiiiiiiiiiiiiiii     ")
+        print(ii)
         results, precision, recall, f1, rouge = model.evaluate()
-    print("@@@@@@@@@@@@   ")
-    print(f1)
+    ii=2
     return f1
 
 if __name__ == '__main__':
@@ -80,11 +107,12 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
     if args.debug:
-        config = Config.get_debug_config(args)
+        config1 = Config.get_debug_config(args)
     else:
-        config = Config.get_default_config(args)
+        config1 = Config.get_default_config(args)
     
-    
+    #logger = logging.getLogger("MLP-example")
+   
    # print(config.load_path)
     ##########################SMAC##############################
     # logger = logging.getLogger("SVMExample")
@@ -92,77 +120,80 @@ if __name__ == '__main__':
 
     # Build Configuration Space which defines all parameters and their ranges
     cs = ConfigurationSpace()
-    BATCH_SIZE=UniformIntegerHyperparameter('BATCH_SIZE', 128, 130, default_value=128) 
-    
-    NUM_EPOCHS =UniformIntegerHyperparameter("NUM_EPOCHS", 7, 9, default_value=7)
-    MAX_TARGET_PARTS=UniformIntegerHyperparameter("MAX_TARGET_PARTS", 6, 9, default_value=6)
+    BATCH_SIZE=UniformIntegerHyperparameter('BATCH_SIZE', 128, 512, default_value=128) 
+    #print("dash bashuvaaaaaaaaaaaaaaaaaaaaaaa")   
+    NUM_EPOCHS =UniformIntegerHyperparameter("NUM_EPOCHS", 7, 11, default_value=7)
+    MAX_TARGET_PARTS=UniformIntegerHyperparameter("MAX_TARGET_PARTS", 6, 11, default_value=6)
     cs.add_hyperparameters([BATCH_SIZE,NUM_EPOCHS,MAX_TARGET_PARTS])
     # We define a few possible types of SVM-kernels and add them as "kernel" to our cs
     #kernel = CategoricalHyperparameter("kernel", ["linear", "rbf", "poly", "sigmoid"], default_value="poly")
     #cs.add_hyperparameter(kernel)
-    # Scenario object
-    ############################--------------------------------------------
-#     config.SAVE_EVERY_EPOCHS = 1
-#     config.PATIENCE = 10
-#     config.TEST_BATCH_SIZE = 256
-#     config.READER_NUM_PARALLEL_BATCHES = 1
-#     config.SHUFFLE_BUFFER_SIZE = 10000
-#     config.CSV_BUFFER_SIZE = 100 * 1024 * 1024  # 100 MB
-#     config.MAX_CONTEXTS = 200
-#     config.SUBTOKENS_VOCAB_MAX_SIZE = 190000
-#     config.TARGET_VOCAB_MAX_SIZE = 27000
-#     config.EMBEDDINGS_SIZE = 128
-#     config.RNN_SIZE = 128 * 2  # Two LSTMs to embed paths, each of size 128
-#     config.DECODER_SIZE = 320
-#     config.NUM_DECODER_LAYERS = 1
-#     config.MAX_PATH_LENGTH = 8 + 1
-#     config.MAX_NAME_PARTS = 5
-#     config.MAX_TARGET_PARTS = 6
-#     config.EMBEDDINGS_DROPOUT_KEEP_PROB = 0.75
-#     config.RNN_DROPOUT_KEEP_PROB = 0.5
-#     config.BIRNN = True
-#     config.RANDOM_CONTEXTS = True
-#     config.BEAM_WIDTH = 0
-#     config.USE_MOMENTUM = True
-#     config.TRAIN_PATH = args.data_path
-#     config.TEST_PATH = args.test_path if args.test_path is not None else ''
-#     config.DATA_NUM_CONTEXTS = 0
-#     config.SAVE_PATH = args.save_path_prefix
-#     config.LOAD_PATH = args.load_path
-#     config.RELEASE = args.release
-    ###################
-    scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
-                         "runcount-limit": 5,  # max. number of function evaluations; for this example set to a low number
+#     # Scenario object
+#     scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternatively runtime)
+#                          "runcount-limit": 5,  # max. number of function evaluations; for this example set to a low number
+#                          "cs": cs,  # configuration space
+#                          "deterministic": "true"
+#                          })
+
+#     # Example call of the function
+#     # It returns: Status, Cost, Runtime, Additional Infos
+#     def_value = mysmac_from_cfg(cs.get_default_configuration())
+#     print("Default Value: %.2f" % (def_value))
+
+#     # Optimize, using a SMAC-object
+#     print("Optimizing! Depending on your machine, this might take a few minutes.")
+#     smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
+#                     tae_runner=mysmac_from_cfg)
+
+#     incumbent = smac.optimize()
+
+#     inc_value = mysmac_from_cfg(incumbent)
+
+#     print("Optimized Value: %.2f" % (inc_value))
+
+#     # We can also validate our results (though this makes a lot more sense with instances)
+#     smac.validate(config_mode='inc',  # We can choose which configurations to evaluate
+#                   # instance_mode='train+test',  # Defines what instances to validate
+#                   repetitions=3,  # Ignored, unless you set "deterministic" to "false" in line 95
+#                   n_jobs=1)  # How many cores to use in parallel for optimization
+   ##########################SMAC------end---------------##############################
+    # SMAC scenario object
+    scenario = Scenario({"run_obj": "quality",  # we optimize quality (alternative to runtime)
+                         "wallclock-limit": 10,  #100 max duration to run the optimization (in seconds)
                          "cs": cs,  # configuration space
-                         "deterministic": "true"
+                         "deterministic": "true",
+                         "limit_resources": True,  # Uses pynisher to limit memory and runtime
+                         # Alternatively, you can also disable this.
+                         # Then you should handle runtime and memory yourself in the TA
+                         "cutoff": 10,  #30 runtime limit for target algorithm
+                         "memory_limit": 307,  # 3072adapt this to reasonable value for your hardware
                          })
 
-    # Example call of the function
+    # max budget for hyperband can be anything. Here, we set it to maximum no. of epochs to train the MLP for
+    max_iters = 10
+    # intensifier parameters
+    intensifier_kwargs = {'initial_budget': 5, 'max_budget': max_iters, 'eta': 3}
+    # To optimize, we pass the function to the SMAC-object
+    smac = BOHB4HPO(scenario=scenario, rng=np.random.RandomState(42),
+                    tae_runner=mysmac_from_cfg,
+                    intensifier_kwargs=intensifier_kwargs)  # all arguments related to intensifier can be passed like this
+
+    # Example call of the function with default values
     # It returns: Status, Cost, Runtime, Additional Infos
-    def_value = mysmac_from_cfg(cs.get_default_configuration())
-    print("Default Value: %.2f" % (def_value))
+    def_value = smac.get_tae_runner().run(config=cs.get_default_configuration(),
+                                          instance='1', budget=max_iters, seed=0)[1]
+    print("Value for default configuration: %.4f" % def_value)
 
-    # Optimize, using a SMAC-object
-    print("Optimizing! Depending on your machine, this might take a few minutes.")
-    smac = SMAC4HPO(scenario=scenario, rng=np.random.RandomState(42),
-                    tae_runner=mysmac_from_cfg)
-    print("@@@@@@start optimize @@@@@@@@@@")
-    incumbent = smac.optimize()
-    print("@@@@@@finish optimize @@@@@@@@@@")
-    inc_value = mysmac_from_cfg(incumbent)
+    # Start optimization
+    try:
+        incumbent = smac.optimize()
+    finally:
+        incumbent = smac.solver.incumbent
 
-    print("Optimized Value: %.2f" % (inc_value))
-
-    # We can also validate our results (though this makes a lot more sense with instances)
-    smac.validate(config_mode='inc',  # We can choose which configurations to evaluate
-                  # instance_mode='train+test',  # Defines what instances to validate
-                  repetitions=3,  # Ignored, unless you set "deterministic" to "false" in line 95
-                  n_jobs=1)  # How many cores to use in parallel for optimization
-    
-
-    
-
-   ##########################SMAC------end---------------##############################
+    inc_value = smac.get_tae_runner().run(config=incumbent, instance='1',
+                                          budget=max_iters, seed=0)[1]
+    print("Optimized Value: %.4f" % inc_value)
+##################-----smac mlp-----###################
 #     config.BATCH_SIZE=best[0]
 #       #config.RNN_SIZE =indiv[1]*2
 #     config.NUM_EPOCHS =best[1]
@@ -171,37 +202,37 @@ if __name__ == '__main__':
       #model = Model(config)
 
      #def print_hyperparams(self):
-    print('Training batch size:\t\t\t', config.BATCH_SIZE)
-    print('Epochs:\t\t', config.NUM_EPOCHS)
-    print('Max target length:\t\t\t', config.MAX_TARGET_PARTS)
-    print('Dataset path:\t\t\t\t', config.TRAIN_PATH)
-    print('Training file path:\t\t\t', config.TRAIN_PATH + '.train.c2s')
-    print('Validation path:\t\t\t', config.TEST_PATH)
-    print('Taking max contexts from each example:\t', config.MAX_CONTEXTS)
-    print('Random path sampling:\t\t\t', config.RANDOM_CONTEXTS)
-    print('Embedding size:\t\t\t\t', config.EMBEDDINGS_SIZE)
-    if config.BIRNN:
-        print('Using BiLSTMs, each of size:\t\t', config.RNN_SIZE // 2)
+    print('Training batch size:\t\t\t', config1.BATCH_SIZE)
+    print('Epochs:\t\t\t\t', config1.NUM_EPOCHS)
+    print('Max target length:\t\t\t', config1.MAX_TARGET_PARTS)
+    print('Dataset path:\t\t\t\t', config1.TRAIN_PATH)
+    print('Training file path:\t\t\t', config1.TRAIN_PATH + '.train.c2s')
+    print('Validation path:\t\t\t', config1.TEST_PATH)
+    print('Taking max contexts from each example:\t', config1.MAX_CONTEXTS)
+    print('Random path sampling:\t\t\t', config1.RANDOM_CONTEXTS)
+    print('Embedding size:\t\t\t\t', config1.EMBEDDINGS_SIZE)
+    if config1.BIRNN:
+        print('Using BiLSTMs, each of size:\t\t', config1.RNN_SIZE // 2)
     else:
-        print('Uni-directional LSTM of size:\t\t', config.RNN_SIZE)
-    print('Decoder size:\t\t\t\t', config.DECODER_SIZE)
-    print('Decoder layers:\t\t\t\t', config.NUM_DECODER_LAYERS)
-    print('Max path lengths:\t\t\t', config.MAX_PATH_LENGTH)
-    print('Max subtokens in a token:\t\t', config.MAX_NAME_PARTS)
-    print('Embeddings dropout keep_prob:\t\t', config.EMBEDDINGS_DROPOUT_KEEP_PROB)
-    print('LSTM dropout keep_prob:\t\t\t', config.RNN_DROPOUT_KEEP_PROB)
+        print('Uni-directional LSTM of size:\t\t', config1.RNN_SIZE)
+    print('Decoder size:\t\t\t\t', config1.DECODER_SIZE)
+    print('Decoder layers:\t\t\t\t', config1.NUM_DECODER_LAYERS)
+    print('Max path lengths:\t\t\t', config1.MAX_PATH_LENGTH)
+    print('Max subtokens in a token:\t\t', config1.MAX_NAME_PARTS)
+    print('Embeddings dropout keep_prob:\t\t', config1.EMBEDDINGS_DROPOUT_KEEP_PROB)
+    print('LSTM dropout keep_prob:\t\t\t', config1.RNN_DROPOUT_KEEP_PROB)
     print('============================================') 
     #aa=evaluate_each_indiv(model,config)
     #print("heyyyyyyyyyyyyyyyyy I am starting main train\n")
     
-    model = Model(config)
+    model = Model(config1)
     print("\n************************************* this is the config to train ************************************\n ")
-    print(config.BATCH_SIZE,config.NUM_EPOCHS ,config.MAX_TARGET_PARTS)
+    print(config1.BATCH_SIZE,config1.NUM_EPOCHS ,config1.MAX_TARGET_PARTS)
       #model = Model(config)
     print('Created model')
-    if config.TRAIN_PATH:
+    if config1.TRAIN_PATH:
         model.train()
-    if config.TEST_PATH and not args.data_path:
+    if config1.TEST_PATH and not args.data_path:
         results, precision, recall, f1, rouge = model.evaluate()
         print('Accuracy: ' + str(results))
         print('Precision: ' + str(precision) + ', recall: ' + str(recall) + ', F1: ' + str(f1))
